@@ -31,6 +31,9 @@ DOCUMENTATION = r'''
             default: HCLOUD_TOKEN
             type: str
             required: false
+        token_extra:
+            description: Extra variable composition expression for the Hetzner Cloud API Token.
+            required: false
         connect_with:
             description: Connect to the server using the value from this field.
             default: public_ipv4
@@ -80,6 +83,10 @@ EXAMPLES = r"""
 # Minimal example. `HCLOUD_TOKEN` is exposed in environment.
 plugin: hcloud
 
+# Example with token provided by extra vars (supports composition)
+plugin: hcloud
+token_extra: "hetzner.apitoken"
+
 # Example with locations, types, status and token
 plugin: hcloud
 token: foobar
@@ -122,7 +129,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
     def _configure_hcloud_client(self):
         self.token_env = self.get_option("token_env")
-        self.api_token = self.templar.template(self.get_option("token"), fail_on_undefined=False) or os.getenv(self.token_env)
+        self.api_token = self._compose(self.get_option("token_extra"), self._vars) or self.templar.template(self.get_option("token"), fail_on_undefined=False) or os.getenv(self.token_env)
         if self.api_token is None:
             raise AnsibleError(
                 "Please specify a token, via the option token, via environment variable HCLOUD_TOKEN "
@@ -293,3 +300,4 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
             # Create groups based on variable values and add the corresponding hosts to it
             self._add_host_to_keyed_groups(self.get_option('keyed_groups'), {}, server.name, strict=strict)
+
