@@ -5,6 +5,32 @@ Hetzner Cloud Ansible Collection Release Notes
 .. contents:: Topics
 
 
+v1.9.1
+======
+
+Bugfixes
+--------
+
+- hcloud_server - externally attached networks (using hcloud_server_network) were removed when not specified in the hcloud_server resource
+
+v1.9.0
+======
+
+Minor Changes
+-------------
+
+- dynamic inventory - add support changing the name of the top level group all servers are added to
+- hcloud_firewall - add support for esp and gre protocols
+
+Bugfixes
+--------
+
+- hcloud_firewall - the deletion could fail if the firewall was referenced right before
+- hcloud_server - fix backup window was given out as "None" instead of null
+- hcloud_server_info - fix backup window was given out as "None" instead of null
+- hcloud_volume - fix server name was given out as "None" instead of null if no server was attached
+- hcloud_volume_info - fix server name was given out as "None" instead of null if no server was attached
+
 v1.8.2
 ======
 

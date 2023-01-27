@@ -11,7 +11,7 @@ DOCUMENTATION = r'''
       - Lukas Kaemmerling (@lkaemmerling)
     short_description: Ansible dynamic inventory plugin for the Hetzner Cloud.
     requirements:
-        - python >= 2.7
+        - python >= 3.5
         - hcloud-python >= 1.0.0
     description:
         - Reads inventories from the Hetzner Cloud API.
@@ -25,6 +25,11 @@ DOCUMENTATION = r'''
             choices: ["hcloud", "hetzner.hcloud.hcloud"]
         token:
             description: The Hetzner Cloud API Token.
+            required: false
+        group:
+            description: The group all servers are automatically added to.
+            default: hcloud
+            type: str
             required: false
         token_env:
             description: Environment variable to load the Hetzner Cloud API Token from.
@@ -40,6 +45,7 @@ DOCUMENTATION = r'''
             type: str
             choices:
                 - public_ipv4
+                - public_ipv6
                 - hostname
                 - ipv4_dns_ptr
                 - private_ipv4
@@ -115,6 +121,7 @@ from ansible.errors import AnsibleError
 from ansible.module_utils._text import to_native
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable
 from ansible.release import __version__
+from ipaddress import IPv6Network
 
 try:
     from hcloud import hcloud
@@ -226,6 +233,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
 
         if self.get_option("connect_with") == "public_ipv4":
             self.inventory.set_variable(server.name, "ansible_host", to_native(server.public_net.ipv4.ip))
+        if self.get_option("connect_with") == "public_ipv6":
+            self.inventory.set_variable(server.name, "ansible_host", to_native(self._first_ipv6_address(server.public_net.ipv6.ip)))
         elif self.get_option("connect_with") == "hostname":
             self.inventory.set_variable(server.name, "ansible_host", to_native(server.name))
         elif self.get_option("connect_with") == "ipv4_dns_ptr":
@@ -242,8 +251,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         # Server Type
         if server.server_type is not None:
             self.inventory.set_variable(server.name, "server_type", to_native(server.server_type.name))
-        else:
-            self.inventory.set_variable(server.name, "server_type", to_native("No server type name found."))
 
         # Datacenter
         self.inventory.set_variable(server.name, "datacenter", to_native(server.datacenter.name))
@@ -265,6 +272,9 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         # Labels
         self.inventory.set_variable(server.name, "labels", dict(server.labels))
 
+    def _first_ipv6_address(self, network):
+        return next(IPv6Network(network).hosts())
+
     def verify_file(self, path):
         """Return the possibly of a file being consumable by this plugin."""
         return (
@@ -284,11 +294,11 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
         self._get_servers()
         self._filter_servers()
 
-        # Add a top group 'hcloud'
-        self.inventory.add_group(group="hcloud")
+        # Add a top group
+        self.inventory.add_group(group=self.get_option("group"))
 
         for server in self.servers:
-            self.inventory.add_host(server.name, group="hcloud")
+            self.inventory.add_host(server.name, group=self.get_option("group"))
             self._set_server_attributes(server)
 
             # Use constructed if applicable

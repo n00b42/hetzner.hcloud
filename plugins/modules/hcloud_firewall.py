@@ -55,17 +55,19 @@ options:
                 description:
                     - The protocol of the firewall rule.
                 type: str
-                choices: [ icmp, tcp, udp ]
+                choices: [ icmp, tcp, udp, esp, gre ]
             source_ips:
                 description:
                     - List of CIDRs that are allowed within this rule
                 type: list
                 elements: str
+                default: [ ]
             destination_ips:
                 description:
                     - List of CIDRs that are allowed within this rule
                 type: list
                 elements: str
+                default: [ ]
             description:
                 description:
                     - User defined description of this rule.
@@ -171,6 +173,7 @@ hcloud_firewall:
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_native
 from ansible_collections.hetzner.hcloud.plugins.module_utils.hcloud import Hcloud
+import time
 
 try:
     from hcloud.firewalls.domain import FirewallRule
@@ -291,7 +294,19 @@ class AnsibleHcloudFirewall(Hcloud):
         self._get_firewall()
         if self.hcloud_firewall is not None:
             if not self.module.check_mode:
-                self.client.firewalls.delete(self.hcloud_firewall)
+                retry_count = 0
+                while retry_count < 10:
+                    try:
+                        self.client.firewalls.delete(self.hcloud_firewall)
+                        break
+                    except APIException as e:
+                        if "is still in use" in e.message:
+                            retry_count = retry_count + 1
+                            time.sleep(0.5 * retry_count)
+                        else:
+                            self.module.fail_json(msg=e.message)
+                    except Exception as e:
+                        self.module.fail_json(msg=e.message)
             self._mark_as_changed()
         self.hcloud_firewall = None
 
@@ -306,7 +321,7 @@ class AnsibleHcloudFirewall(Hcloud):
                     elements="dict",
                     options=dict(
                         direction={"type": "str", "choices": ["in", "out"]},
-                        protocol={"type": "str", "choices": ["icmp", "udp", "tcp"]},
+                        protocol={"type": "str", "choices": ["icmp", "udp", "tcp", "esp", "gre"]},
                         port={"type": "str"},
                         source_ips={"type": "list", "elements": "str", "default": []},
                         destination_ips={"type": "list", "elements": "str", "default": []},

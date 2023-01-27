@@ -87,6 +87,12 @@ hcloud_server_info:
             returned: always
             type: str
             sample: 2a01:4f8:1c1c:c140::/64
+        private_networks:
+            description: List of private networks the server is attached to (name)
+            returned: always
+            type: list
+            elements: str
+            sample: ['my-network', 'another-network']
         location:
             description: Name of the location of the server
             returned: always
@@ -155,18 +161,20 @@ class AnsibleHcloudServerInfo(Hcloud):
                 placement_group = None if server.placement_group is None else to_native(server.placement_group.name)
                 ipv4_address = None if server.public_net.ipv4 is None else to_native(server.public_net.ipv4.ip)
                 ipv6 = None if server.public_net.ipv6 is None else to_native(server.public_net.ipv6.ip)
+                backup_window = None if server.backup_window is None else to_native(server.backup_window)
                 tmp.append({
                     "id": to_native(server.id),
                     "name": to_native(server.name),
                     "ipv4_address": ipv4_address,
                     "ipv6": ipv6,
+                    "private_networks": [to_native(net.network.name) for net in server.private_net],
                     "image": image,
                     "server_type": to_native(server.server_type.name),
                     "datacenter": to_native(server.datacenter.name),
                     "location": to_native(server.datacenter.location.name),
                     "placement_group": placement_group,
                     "rescue_enabled": server.rescue_enabled,
-                    "backup_window": to_native(server.backup_window),
+                    "backup_window": backup_window,
                     "labels": server.labels,
                     "status": to_native(server.status),
                     "delete_protection": server.protection["delete"],
